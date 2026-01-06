@@ -1,107 +1,124 @@
 import React, { useState } from 'react';
 import ReactDOM from 'react-dom/client';
-import { Home, MapPin, History, User, Bell, Star, AlertCircle, CheckCircle2, ChevronRight, LogOut } from 'lucide-react';
+import { Home, MapPin, History, User, Bell, Star, AlertCircle, ChevronRight, LogOut, CheckCircle2, Loader2, Navigation } from 'lucide-react';
 
 const App = () => {
-  // State untuk mengatur halaman mana yang aktif
-  const [activeTab, setActiveTab] = useState('home');
+  const [activeTab, setActiveTab] = useState('absen'); // Set default ke absen untuk testing
+  const [status, setStatus] = useState<'idle' | 'checking' | 'success' | 'denied'>('idle');
+  const [distance, setDistance] = useState<number | null>(null);
 
-  // Komponen Halaman Dashboard
-  const DashboardView = () => (
-    <div className="animate-in fade-in duration-500">
-      <div style={{ background: 'linear-gradient(135deg, #4f46e5, #9333ea)', borderRadius: '24px', padding: '24px', color: '#fff', marginBottom: '20px', textAlign: 'left' }}>
-          <p style={{ margin: 0, opacity: 0.8 }}>Selamat Datang,</p>
-          <h2 style={{ margin: '5px 0 0 0', fontSize: '24px', fontWeight: 'bold' }}>Ahmad Rifai</h2>
-          <p style={{ margin: 0, fontSize: '14px', opacity: 0.9 }}>XII MIPA 1</p>
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-          <div style={{ background: '#fff', padding: '20px', borderRadius: '20px', textAlign: 'center', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
-              <Star color="#f59e0b" size={24} style={{ marginBottom: '8px' }} />
-              <div style={{ fontSize: '12px', color: '#666', fontWeight: 'bold' }}>POIN MORAL</div>
-              <div style={{ fontSize: '24px', fontWeight: 'black', color: '#333' }}>120</div>
-          </div>
-          <div style={{ background: '#fff', padding: '20px', borderRadius: '20px', textAlign: 'center', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
-              <AlertCircle color="#ef4444" size={24} style={{ marginBottom: '8px' }} />
-              <div style={{ fontSize: '12px', color: '#666', fontWeight: 'bold' }}>PELANGGARAN</div>
-              <div style={{ fontSize: '24px', fontWeight: 'black', color: '#333' }}>2</div>
-          </div>
-      </div>
-    </div>
-  );
+  // Titik Koordinat SMAN 2 Tanggul
+  const SCHOOL_COORDS = { lat: -8.156534, lng: 113.447512, radius: 200 };
 
-  // Komponen Halaman Absensi
+  // Fungsi Hitung Jarak (Haversine Formula)
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371e3; // meter
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
+  const handleCheckIn = () => {
+    setStatus('checking');
+    if (!navigator.geolocation) {
+      alert("Browser tidak mendukung GPS");
+      setStatus('idle');
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const d = calculateDistance(pos.coords.latitude, pos.coords.longitude, SCHOOL_COORDS.lat, SCHOOL_COORDS.lng);
+        setDistance(Math.round(d));
+        
+        if (d <= SCHOOL_COORDS.radius) {
+          setStatus('success');
+        } else {
+          setStatus('denied');
+          alert(`Anda berada di luar jangkauan (${Math.round(d)}m). Maksimal 200m.`);
+        }
+      },
+      () => {
+        alert("Gagal akses lokasi. Berikan izin GPS di browser HP Anda.");
+        setStatus('idle');
+      },
+      { enableHighAccuracy: true }
+    );
+  };
+
   const AttendanceView = () => (
-    <div className="animate-in slide-in-from-bottom-5">
-      <h2 style={{ textAlign: 'left', fontWeight: 'bold', fontSize: '20px', marginBottom: '15px' }}>Presensi Lokasi</h2>
-      <div style={{ background: '#f1f5f9', height: '200px', borderRadius: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px dashed #cbd5e1', marginBottom: '20px' }}>
-        <div style={{ textAlign: 'center', color: '#94a3b8' }}>
-          <MapPin size={40} style={{ marginBottom: '10px' }} />
-          <p style={{ fontSize: '14px', fontWeight: 'bold' }}>Mendeteksi Lokasi...</p>
-        </div>
-      </div>
-      <button style={{ width: '100%', background: '#10b981', color: '#fff', border: 'none', padding: '15px', borderRadius: '16px', fontWeight: 'bold', fontSize: '16px' }}>
-        Check-In Sekarang
-      </button>
-    </div>
-  );
+    <div className="animate-in slide-in-from-bottom-5 text-left space-y-6">
+      <header className="px-1">
+        <h2 className="text-2xl font-black text-slate-800">Presensi Lokasi</h2>
+      </header>
+      
+      {/* Kartu Lokasi Mirip Gambar */}
+      <div className="aspect-video bg-slate-50 rounded-[2.5rem] border-4 border-white shadow-2xl flex flex-col items-center justify-center relative overflow-hidden group">
+        <div className="absolute inset-0 bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:20px_20px] opacity-50"></div>
+        
+        {status === 'checking' ? (
+          <Loader2 className="text-indigo-600 animate-spin" size={48} />
+        ) : status === 'success' ? (
+          <CheckCircle2 className="text-emerald-500 animate-bounce" size={50} />
+        ) : (
+          <MapPin className="text-slate-300 transition-transform group-hover:scale-110" size={50} />
+        )}
 
-  // Komponen Halaman Riwayat
-  const HistoryView = () => (
-    <div className="animate-in slide-in-from-right-5 text-left">
-      <h2 style={{ fontWeight: 'bold', fontSize: '20px', marginBottom: '15px' }}>Riwayat Poin</h2>
-      {[
-        { title: 'Juara Lomba Puisi', pts: '+50', color: '#10b981' },
-        { title: 'Terlambat Upacara', pts: '-10', color: '#ef4444' }
-      ].map((item, i) => (
-        <div key={i} style={{ background: '#fff', padding: '15px', borderRadius: '16px', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
-          <span style={{ fontWeight: '600', color: '#333' }}>{item.title}</span>
-          <span style={{ fontWeight: 'bold', color: item.color }}>{item.pts}</span>
-        </div>
-      ))}
-    </div>
-  );
+        <p className="mt-4 text-slate-400 font-bold text-sm relative z-10">
+          {distance !== null ? `${distance}m dari sekolah` : "Deteksi Lokasi Sekolah"}
+        </p>
+      </div>
 
-  // Komponen Halaman Profil
-  const ProfileView = () => (
-    <div className="animate-in fade-in">
-      <div style={{ textAlign: 'center', padding: '20px 0' }}>
-        <img src="https://i.pravatar.cc/150?u=ahmad" style={{ width: '100px', height: '100px', borderRadius: '50%', border: '4px solid #fff', boxShadow: '0 10px 15px rgba(0,0,0,0.1)' }} />
-        <h2 style={{ marginTop: '15px', fontWeight: 'bold' }}>Ahmad Rifai</h2>
-        <p style={{ color: '#666' }}>ahmad.rifai@sman2.sch.id</p>
+      <div className="grid grid-cols-2 gap-4">
+        <button 
+          onClick={handleCheckIn}
+          className="bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white font-bold py-5 rounded-3xl flex items-center justify-center gap-3 shadow-xl shadow-emerald-200 transition-all"
+        >
+          <CheckCircle2 size={20} />
+          <span>Masuk</span>
+        </button>
+        <button 
+          className="bg-amber-400 hover:bg-amber-500 active:scale-95 text-white font-bold py-5 rounded-3xl flex items-center justify-center gap-3 shadow-xl shadow-amber-100 transition-all"
+        >
+          <Navigation size={20} className="rotate-45" />
+          <span>Pulang</span>
+        </button>
       </div>
-      <div style={{ background: '#fff', borderRadius: '20px', overflow: 'hidden' }}>
-        <div style={{ padding: '15px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between' }}>
-          <span>Pengaturan Akun</span> <ChevronRight size={18} color="#ccc" />
+
+      {status === 'success' && (
+        <div className="bg-emerald-50 border border-emerald-100 p-5 rounded-3xl text-center font-bold text-emerald-700 animate-in zoom-in">
+          Berhasil Absen! Selamat belajar.
         </div>
-        <div style={{ padding: '15px', color: '#ef4444', display: 'flex', justifyContent: 'space-between' }}>
-          <span>Keluar</span> <LogOut size={18} />
-        </div>
-      </div>
+      )}
     </div>
   );
 
   return (
-    <div style={{ fontFamily: '"Plus Jakarta Sans", sans-serif', minHeight: '100vh', background: '#f8fafc', paddingBottom: '100px' }}>
-      <header style={{ background: '#fff', padding: '15px 20px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{ background: '#4f46e5', color: '#fff', width: '35px', height: '35px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>S2</div>
-            <h1 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#1e293b' }}>SMAN 2 Tanggul</h1>
+    <div style={{ fontFamily: '"Plus Jakarta Sans", sans-serif', minHeight: '100vh', background: '#fff', paddingBottom: '100px' }} className="max-w-md mx-auto shadow-2xl">
+      <header className="sticky top-0 bg-white/90 backdrop-blur-xl border-b border-slate-50 px-6 py-5 flex items-center justify-between z-50">
+        <div className="flex items-center gap-4">
+            <div className="w-10 h-10 bg-indigo-600 rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-lg">S2</div>
+            <h1 className="font-black text-slate-800 text-lg">SMAN 2 Tanggul</h1>
         </div>
-        <Bell size={22} color="#94a3b8" />
+        <Bell size={24} className="text-slate-300" />
       </header>
 
-      <main style={{ padding: '20px' }}>
-        {activeTab === 'home' && <DashboardView />}
+      <main className="p-6">
+        {activeTab === 'home' && <div className="p-10 text-center font-bold">Dashboard Siswa</div>}
         {activeTab === 'absen' && <AttendanceView />}
-        {activeTab === 'history' && <HistoryView />}
-        {activeTab === 'profile' && <ProfileView />}
+        {activeTab === 'history' && <div className="p-10 text-center font-bold">Riwayat Poin</div>}
+        {activeTab === 'profile' && <div className="p-10 text-center font-bold">Profil Akun</div>}
       </main>
 
-      <nav style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', height: '75px', display: 'flex', justifyContent: 'space-around', alignItems: 'center', borderTop: '1px solid #f1f5f9', maxWidth: '500px', margin: '0 auto' }}>
-        <button onClick={() => setActiveTab('home')} style={{ background: 'none', border: 'none', color: activeTab === 'home' ? '#4f46e5' : '#cbd5e1' }}><Home /></button>
-        <button onClick={() => setActiveTab('absen')} style={{ background: 'none', border: 'none', color: activeTab === 'absen' ? '#4f46e5' : '#cbd5e1' }}><MapPin /></button>
-        <button onClick={() => setActiveTab('history')} style={{ background: 'none', border: 'none', color: activeTab === 'history' ? '#4f46e5' : '#cbd5e1' }}><History /></button>
-        <button onClick={() => setActiveTab('profile')} style={{ background: 'none', border: 'none', color: activeTab === 'profile' ? '#4f46e5' : '#cbd5e1' }}><User /></button>
+      <nav className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-2xl border-t border-slate-50 h-20 flex justify-around items-center px-6 max-w-md mx-auto z-50">
+        <button onClick={() => setActiveTab('home')} style={{ color: activeTab === 'home' ? '#4f46e5' : '#cbd5e1' }} className="transition-all"><Home size={26}/></button>
+        <button onClick={() => setActiveTab('absen')} style={{ color: activeTab === 'absen' ? '#4f46e5' : '#cbd5e1' }} className="transition-all"><MapPin size={26}/></button>
+        <button onClick={() => setActiveTab('history')} style={{ color: activeTab === 'history' ? '#4f46e5' : '#cbd5e1' }} className="transition-all"><History size={26}/></button>
+        <button onClick={() => setActiveTab('profile')} style={{ color: activeTab === 'profile' ? '#4f46e5' : '#cbd5e1' }} className="transition-all"><User size={26}/></button>
       </nav>
     </div>
   );
