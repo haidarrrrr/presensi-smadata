@@ -1,0 +1,8 @@
+
+{
+  "name": "Presensi SMAN 2 Tanggul",
+  "description": "A comprehensive mobile-first presence, points, and violation tracking system for SMAN 2 Tanggul students, featuring location-based check-ins and AI-powered behavior insights.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
